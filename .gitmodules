@@ -1,7 +1,7 @@
 [submodule "async_web_server_cpp"]
 	    path = async_web_server_cpp
 	        url = https://github.com/GT-RAIL/async_web_server_cpp.git
-[submodule "tf2_web_republisher_py"]
-	    path = tf2_web_republisher_py
+[submodule "tf2_web_republisher"]
+	    path = tf2_web_republisher
 	        url = https://github.com/RobotWebTools/tf2_web_republisher.git
 

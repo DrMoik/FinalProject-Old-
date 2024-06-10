@@ -41,6 +41,7 @@ endfunction()
 create_moveit_executable(pick_and_place)
 create_moveit_executable(pick_and_place_perception)
 create_moveit_executable(pick_and_place_perception_real)
+create_moveit_executable(current_pose)
 
 # Install the launch file
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})

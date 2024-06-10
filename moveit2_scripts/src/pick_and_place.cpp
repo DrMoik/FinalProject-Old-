@@ -6,14 +6,16 @@
 #include <moveit_msgs/msg/planning_scene.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-static const rclcpp::Logger LOGGER = rclcpp::get_logger("move_group_demo");
+// Logger for the node
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("pick_and_place_node");
 
 int main(int argc, char **argv) {
+  // Initialize ROS 2
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions node_options;
   node_options.automatically_declare_parameters_from_overrides(true);
   auto move_group_node =
-      rclcpp::Node::make_shared("move_group_interface_tutorial", node_options);
+      rclcpp::Node::make_shared("pick_and_place_node", node_options);
 
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(move_group_node);
@@ -54,46 +56,46 @@ int main(int argc, char **argv) {
   table.primitive_poses.push_back(table_pose);
   table.operation = table.ADD;
 
-  // Define a collision object for the cofmaker
-  moveit_msgs::msg::CollisionObject cofmaker;
-  cofmaker.header.frame_id = move_group_arm.getPlanningFrame();
-  cofmaker.id = "coffee";
+  // Define a collision object for the coffee maker
+  moveit_msgs::msg::CollisionObject coffee_maker;
+  coffee_maker.header.frame_id = move_group_arm.getPlanningFrame();
+  coffee_maker.id = "coffee_maker";
 
-  // Define a box for the cofmaker surface
-  shape_msgs::msg::SolidPrimitive coffee_surface;
-  coffee_surface.type = coffee_surface.BOX;
-  coffee_surface.dimensions.resize(3);
-  coffee_surface.dimensions[0] = 0.8; // x dimension
-  coffee_surface.dimensions[1] = 0.2; // y dimension
-  coffee_surface.dimensions[2] = 0.8; // z dimension
+  // Define a box for the coffee maker
+  shape_msgs::msg::SolidPrimitive coffee_maker_surface;
+  coffee_maker_surface.type = coffee_maker_surface.BOX;
+  coffee_maker_surface.dimensions.resize(3);
+  coffee_maker_surface.dimensions[0] = 0.8; // x dimension
+  coffee_maker_surface.dimensions[1] = 0.2; // y dimension
+  coffee_maker_surface.dimensions[2] = 0.8; // z dimension
 
-  // Define the pose of the cofmaker
-  geometry_msgs::msg::Pose coffee_pose;
-  coffee_pose.orientation.w = 1.0;
-  coffee_pose.position.x = 0.30;
-  coffee_pose.position.y = 0.75;
-  coffee_pose.position.z = 0.4; 
+  // Define the pose of the coffee maker
+  geometry_msgs::msg::Pose coffee_maker_pose;
+  coffee_maker_pose.orientation.w = 1.0;
+  coffee_maker_pose.position.x = 0.30;
+  coffee_maker_pose.position.y = 0.75;
+  coffee_maker_pose.position.z = 0.4;
 
-  cofmaker.primitives.push_back(coffee_surface);
-  cofmaker.primitive_poses.push_back(coffee_pose);
-  cofmaker.operation = cofmaker.ADD;
+  coffee_maker.primitives.push_back(coffee_maker_surface);
+  coffee_maker.primitive_poses.push_back(coffee_maker_pose);
+  coffee_maker.operation = coffee_maker.ADD;
 
   std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
   collision_objects.push_back(table);
-  collision_objects.push_back(cofmaker);
+  collision_objects.push_back(coffee_maker);
 
-  // Add the collision object to the world
+  // Add the collision objects to the world
   planning_scene_interface.addCollisionObjects(collision_objects);
   rclcpp::sleep_for(std::chrono::seconds(1));
 
-  ///////////////////////////////////////////////////////////////////
+  // Get joint model groups for the arm and gripper
   const moveit::core::JointModelGroup *joint_model_group_arm =
       move_group_arm.getCurrentState()->getJointModelGroup(PLANNING_GROUP_ARM);
   const moveit::core::JointModelGroup *joint_model_group_gripper =
       move_group_gripper.getCurrentState()->getJointModelGroup(
           PLANNING_GROUP_GRIPPER);
 
-  // Get Current State
+  // Get current state
   moveit::core::RobotStatePtr current_state_arm =
       move_group_arm.getCurrentState(10);
   moveit::core::RobotStatePtr current_state_gripper =
@@ -109,21 +111,19 @@ int main(int argc, char **argv) {
   move_group_arm.setStartStateToCurrentState();
   move_group_gripper.setStartStateToCurrentState();
 
-  // Go Home
-  RCLCPP_INFO(LOGGER, "Going Home");
+  // Move the arm to the home position
+  RCLCPP_INFO(LOGGER, "Moving arm to home position");
 
-  // joint_group_positions_arm[0] = 0.00;  // Shoulder Pan
   joint_group_positions_arm[1] = -2.50; // Shoulder Lift
   joint_group_positions_arm[2] = 1.50;  // Elbow
   joint_group_positions_arm[3] = -1.50; // Wrist 1
   joint_group_positions_arm[4] = -1.55; // Wrist 2
-  // joint_group_positions_arm[5] = 0.00;  // Wrist 3
 
   move_group_arm.setJointValueTarget(joint_group_positions_arm);
 
-  moveit::planning_interface::MoveGroupInterface::Plan my_plan_arm;
-  bool success_arm = (move_group_arm.plan(my_plan_arm) ==
-                      moveit::core::MoveItErrorCode::SUCCESS);
+  moveit::planning_interface::MoveGroupInterface::Plan arm_plan;
+  bool success_arm =
+      (move_group_arm.plan(arm_plan) == moveit::core::MoveItErrorCode::SUCCESS);
 
   if (!success_arm) {
     RCLCPP_ERROR(LOGGER, "Failed to plan to home position");
@@ -131,39 +131,38 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  move_group_arm.execute(my_plan_arm);
+  move_group_arm.execute(arm_plan);
 
-  // Pregrasp
-  RCLCPP_INFO(LOGGER, "Pregrasp Position");
+  // Move the arm to the pre-grasp position
+  RCLCPP_INFO(LOGGER, "Moving arm to pre-grasp position");
 
-  geometry_msgs::msg::Pose target_pose1;
-  target_pose1.orientation.x = -1;
-  target_pose1.orientation.y = 0.00;
-  target_pose1.orientation.z = 0.0;
-  target_pose1.orientation.w = 0.00;
-  target_pose1.position.x = 0.34;
-  target_pose1.position.y = 0.33;
-  target_pose1.position.z = 0.36;
-  move_group_arm.setPoseTarget(target_pose1);
+  geometry_msgs::msg::Pose pre_grasp_pose;
+  pre_grasp_pose.orientation.x = 0;
+  pre_grasp_pose.orientation.y = -1;
+  pre_grasp_pose.orientation.z = 0.0;
+  pre_grasp_pose.orientation.w = 0.00;
+  pre_grasp_pose.position.x = 0.30;
+  pre_grasp_pose.position.y = 0.33;
+  pre_grasp_pose.position.z = 0.33;
+  move_group_arm.setPoseTarget(pre_grasp_pose);
 
-  success_arm = (move_group_arm.plan(my_plan_arm) ==
-                 moveit::core::MoveItErrorCode::SUCCESS);
+  success_arm =
+      (move_group_arm.plan(arm_plan) == moveit::core::MoveItErrorCode::SUCCESS);
   if (!success_arm) {
-    RCLCPP_ERROR(LOGGER, "Failed to plan to pregrasp position");
+    RCLCPP_ERROR(LOGGER, "Failed to plan to pre-grasp position");
     rclcpp::shutdown();
     return -1;
   }
 
-  move_group_arm.execute(my_plan_arm);
+  move_group_arm.execute(arm_plan);
 
-  // Open Gripper
-
-  RCLCPP_INFO(LOGGER, "Open Gripper!");
+  // Open the gripper
+  RCLCPP_INFO(LOGGER, "Opening gripper");
 
   move_group_gripper.setNamedTarget("gripper_open");
 
-  moveit::planning_interface::MoveGroupInterface::Plan my_plan_gripper;
-  bool success_gripper = (move_group_gripper.plan(my_plan_gripper) ==
+  moveit::planning_interface::MoveGroupInterface::Plan gripper_plan;
+  bool success_gripper = (move_group_gripper.plan(gripper_plan) ==
                           moveit::core::MoveItErrorCode::SUCCESS);
   if (!success_gripper) {
     RCLCPP_ERROR(LOGGER, "Failed to open gripper");
@@ -171,17 +170,16 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  move_group_gripper.execute(my_plan_gripper);
+  move_group_gripper.execute(gripper_plan);
 
-  // Approach
-  RCLCPP_INFO(LOGGER, "Approach to object!");
+  // Approach the object
+  RCLCPP_INFO(LOGGER, "Approaching object");
 
   std::vector<geometry_msgs::msg::Pose> approach_waypoints;
-  target_pose1.position.z -= 0.01;
-  approach_waypoints.push_back(target_pose1);
-
-  target_pose1.position.z -= 0.01;
-  approach_waypoints.push_back(target_pose1);
+  pre_grasp_pose.position.z -= 0.04;
+  approach_waypoints.push_back(pre_grasp_pose);
+  pre_grasp_pose.position.z -= 0.04;
+  approach_waypoints.push_back(pre_grasp_pose);
 
   moveit_msgs::msg::RobotTrajectory trajectory_approach;
   const double jump_threshold = 0.0;
@@ -198,84 +196,85 @@ int main(int argc, char **argv) {
 
   move_group_arm.execute(trajectory_approach);
 
-  // Close Gripper
+  // Close the gripper
+  RCLCPP_INFO(LOGGER, "Closing gripper");
 
-  RCLCPP_INFO(LOGGER, "Close Gripper!");
   move_group_gripper.setNamedTarget("gripper_close");
 
-  success_gripper = (move_group_gripper.plan(my_plan_gripper) ==
+  success_gripper = (move_group_gripper.plan(gripper_plan) ==
                      moveit::core::MoveItErrorCode::SUCCESS);
-
   if (!success_gripper) {
     RCLCPP_ERROR(LOGGER, "Failed to close gripper");
     rclcpp::shutdown();
     return -1;
   }
 
-  move_group_gripper.execute(my_plan_gripper);
+  move_group_gripper.execute(gripper_plan);
 
-  // Retreat
-
-  RCLCPP_INFO(LOGGER, "Retreat from object!");
+  // Retreat from the object
+  RCLCPP_INFO(LOGGER, "Retreating from object");
 
   std::vector<geometry_msgs::msg::Pose> retreat_waypoints;
-  target_pose1.position.z += 0.01;
-  retreat_waypoints.push_back(target_pose1);
-
-  target_pose1.position.z += 0.01;
-  retreat_waypoints.push_back(target_pose1);
+  for (int i = 0; i < 8; ++i) {
+    pre_grasp_pose.position.z += 0.01;
+    retreat_waypoints.push_back(pre_grasp_pose);
+  }
 
   moveit_msgs::msg::RobotTrajectory trajectory_retreat;
-
   fraction = move_group_arm.computeCartesianPath(
       retreat_waypoints, eef_step, jump_threshold, trajectory_retreat);
 
   if (fraction < 0.9) {
-    RCLCPP_ERROR(LOGGER, "Failed to plan a sufficient approach path");
+    RCLCPP_ERROR(LOGGER, "Failed to plan a sufficient retreat path");
     rclcpp::shutdown();
     return -1;
   }
 
   move_group_arm.execute(trajectory_retreat);
 
-  // Place
-
-  RCLCPP_INFO(LOGGER, "Release Position");
+  // Move the arm to the release position
+  RCLCPP_INFO(LOGGER, "Moving arm to release position");
 
   current_state_arm = move_group_arm.getCurrentState(10);
+  if (!current_state_arm) {
+    RCLCPP_ERROR(LOGGER, "Failed to get current state of the arm");
+    rclcpp::shutdown();
+    return -1;
+  }
+
   current_state_arm->copyJointGroupPositions(joint_model_group_arm,
                                              joint_group_positions_arm);
 
-  joint_group_positions_arm[0] += 3.141592; // Shoulder Pan
+  joint_group_positions_arm[0] += 2.3561944901923; // Shoulder Pan
+  if (!move_group_arm.setJointValueTarget(joint_group_positions_arm)) {
+    joint_group_positions_arm[0] -= 2.3561944901923;
+    joint_group_positions_arm[0] -= 3.14159265358979323846;
+    joint_group_positions_arm[0] -= 0.78539816339744831;
+  }
 
-  move_group_arm.setJointValueTarget(joint_group_positions_arm);
+  move_group_arm.setPlanningTime(20.0); // Increase the planning time
 
-  success_arm = (move_group_arm.plan(my_plan_arm) ==
-                 moveit::core::MoveItErrorCode::SUCCESS);
-
+  success_arm =
+      (move_group_arm.plan(arm_plan) == moveit::core::MoveItErrorCode::SUCCESS);
   if (!success_arm) {
     RCLCPP_ERROR(LOGGER, "Failed to plan to release position");
     rclcpp::shutdown();
     return -1;
   }
-  move_group_arm.execute(my_plan_arm);
 
-  // Lower 0.2m in the z axis from the current position without changing the
-  // orientation
+  move_group_arm.execute(arm_plan);
+
+  // Lower the end-effector
   RCLCPP_INFO(LOGGER, "Lowering the end-effector");
 
   std::vector<geometry_msgs::msg::Pose> lower_waypoints;
-
-  // Get the current pose
   geometry_msgs::msg::Pose current_pose = move_group_arm.getCurrentPose().pose;
   lower_waypoints.push_back(current_pose);
 
-  // Lower the z position by 0.2 meters
-  current_pose.position.z -= 0.2;
+  current_pose.position.z -= 0.6;
   lower_waypoints.push_back(current_pose);
 
   moveit_msgs::msg::RobotTrajectory trajectory_lower;
-
   double fraction_lower = move_group_arm.computeCartesianPath(
       lower_waypoints, eef_step, jump_threshold, trajectory_lower);
 
@@ -287,13 +286,12 @@ int main(int argc, char **argv) {
 
   move_group_arm.execute(trajectory_lower);
 
-  // Open Gripper
-
-  RCLCPP_INFO(LOGGER, "Release Object!");
+  // Open the gripper to release the object
+  RCLCPP_INFO(LOGGER, "Releasing object");
 
   move_group_gripper.setNamedTarget("gripper_open");
 
-  success_gripper = (move_group_gripper.plan(my_plan_gripper) ==
+  success_gripper = (move_group_gripper.plan(gripper_plan) ==
                      moveit::core::MoveItErrorCode::SUCCESS);
   if (!success_gripper) {
     RCLCPP_ERROR(LOGGER, "Failed to open gripper");
@@ -301,8 +299,9 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  move_group_gripper.execute(my_plan_gripper);
+  move_group_gripper.execute(gripper_plan);
 
+  // Shutdown ROS 2
   rclcpp::shutdown();
   return 0;
 }

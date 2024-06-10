@@ -1,0 +1,26 @@
+<package format="2">
+  <name>web_interface</name>
+  <version>0.0.1</version>
+  <description>The web_interface package</description>
+  <maintainer email="m.galvez@tec.mx">Mike GZ</maintainer>
+  <license>Apache 2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <build_depend>rclcpp</build_depend>
+  <build_depend>tf2_web_republisher</build_depend>
+  <build_depend>web_video_server</build_depend>
+  <build_depend>tf2_web_republisher_py</build_depend>
+
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>tf2_web_republisher</exec_depend>
+  <exec_depend>web_video_server</exec_depend>
+  <exec_depend>tf2_web_republisher_py</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
